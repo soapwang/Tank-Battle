@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Tank Battle</string>
+    <string name="resume_hint">Tap to resume</string>
+</resources>
