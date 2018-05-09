@@ -5,6 +5,6 @@ package com.soapwang.surfacetest;
  */
 
 public class Constants {
-    //Tank stats:hit point, speed scalar
-    public static final int[] TYPE_1_STATS = {2, 1};
+    //Tank stats:hit point, speed scalar, attack interval
+    public static final int[][] TYPES = {{2, 1, 15}, {3, 0 ,12}, {1, 2, 15}};
 }

@@ -19,6 +19,7 @@ import android.view.SurfaceView;
 
 import java.util.ArrayList;
 import java.util.Formatter;
+import java.util.Iterator;
 import java.util.Random;
 
 
@@ -30,6 +31,9 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
     public final static int RIGHT = 1;
     public final static int DOWN = 2;
     public final static int LEFT = 3;
+    //static number of the owner
+    public final static int PLAYER1 = 100;
+    public final static int ENEMY = 102;
 
     private String fpsText = "0.0";
     private Context mContext;
@@ -58,18 +62,36 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
     private int playAreaTop;
     private int playAreaBottom;
 
+    // other measurements
+    private int projctileSize;
+    private int tankSize;
 
     // components and units
-    Rect leftUIRect;
-    Rect rightUIRect;
-    Tank player;
-    ArrayList<Tank> tankList = new ArrayList<Tank>();
-    ArrayList<Projectile> ProjectileList = new ArrayList<Projectile>();
-    //resources
+    private Rect leftUIRect;
+    private Rect rightUIRect;
+    private Tank player;
+    private ArrayList<Tank> tankList = new ArrayList<Tank>();
+    private ArrayList<Projectile> projectileList = new ArrayList<Projectile>();
+    private Iterator<Projectile> projIter;
+    private int attackCooldown;
+    private int enemyRespawnX;
+    private int enemyRespawnY;
 
-    Bitmap[] tank1;
+    private int playerRespawnX;
+    private int playerRespawnY;
+
+    //for test
+    private int enemyRespawnTime;
+
+    //resources
+    Bitmap[] tank1; // player's tank pic
+    Bitmap[] tank2; // enemy's tank pic
+    Bitmap proj1;
+    Bitmap proj2;
     int[] tankDrawable1 = {
             R.drawable.tank1_up,  R.drawable.tank1_right,  R.drawable.tank1_down, R.drawable.tank1_left};
+    int[] tankDrawable2 = {
+            R.drawable.tank2_up,  R.drawable.tank2_right,  R.drawable.tank2_down, R.drawable.tank2_left};
 
     public GameViewNew(Context context) {
         super(context);
@@ -80,10 +102,15 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
 
         // loading resources
         tank1 = new Bitmap[4];
+        tank2 = new Bitmap[4];
         for(int i=0; i<4; i++) {
-            Bitmap pic = BitmapFactory.decodeResource(getResources(), tankDrawable1[i]);
-            tank1[i]  = pic;
+            Bitmap pic1 = BitmapFactory.decodeResource(getResources(), tankDrawable1[i]);
+            Bitmap pic2 = BitmapFactory.decodeResource(getResources(), tankDrawable2[i]);
+            tank1[i] = pic1;
+            tank2[i] = pic2;
         }
+
+        proj1 = BitmapFactory.decodeResource(getResources(), R.drawable.projctile);
     }
 
     @Override
@@ -92,8 +119,8 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
             super.draw(canvas);
             drawBackground(canvas, paint);
             drawTanks(canvas, paint);
+            drawProjectile(canvas, paint);
             drawFps(canvas, paint);
-
         }
     }
 
@@ -126,11 +153,61 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
                 int top = t.getY() - playAreaBlockInPixel;
                 int bottom = t.getY() + playAreaBlockInPixel;
                 Rect tankRect = new Rect(left, top, right, bottom);
-                c.drawBitmap(tank1[direction], null, tankRect, null);
+                if(t.getOwner() == PLAYER1)
+                    c.drawBitmap(tank1[direction], null, tankRect, null);
+                else if(t.getOwner() == ENEMY)
+                    c.drawBitmap(tank2[direction], null, tankRect, null);
             }
         }
     }
+
+    private void drawProjectile(Canvas c, Paint p) {
+        // we use iterator approach
+        projIter = projectileList.iterator();
+        while(projIter.hasNext()) {
+            Projectile t = projIter.next();
+            int left = t.getX() - projctileSize;
+            int right = t.getX() + projctileSize;
+            int top = t.getY() - projctileSize;
+            int bottom = t.getY() + projctileSize;
+            Rect projRect = new Rect(left, top, right, bottom);
+            c.drawBitmap(proj1, null, projRect, null);
+        }
+
+        /*
+        for(Projectile t : projectileList) {
+            int direction = t.getDirection();
+            int left = t.getX() - projctileSize;
+            int right = t.getX() + projctileSize;
+            int top = t.getY() - projctileSize;
+            int bottom = t.getY() + projctileSize;
+            Rect projRect = new Rect(left, top, right, bottom);
+            c.drawBitmap(proj1, null, projRect, null);
+        }
+        */
+    }
     //draw methods end
+
+    public boolean hitDetectBase(Projectile p, Tank t) {
+        int pX = p.getX();
+        int pY = p.getY();
+        int tX = t.getX();
+        int tY = t.getY();
+
+        if(pX - projctileSize >= tX - tankSize && pX + projctileSize <= tX + tankSize) {
+            if(pY - projctileSize >= tY - tankSize && pY + projctileSize <= tY + tankSize) {
+                if(p.getOwner() != t.getOwner()) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            else
+                return false;
+        } else {
+            return false;
+        }
+    }
 
     public void collisionDetect() {
 
@@ -151,18 +228,62 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
             return 3; // reach top
         }
         else if(t.getY() > playAreaBottom - playAreaBlockInPixel) {
-            t.setOffset(1, -1);
+            t.setOffset(0, -1);
             return 4; // reach bottom
         }
         else
             return 0;
     }
 
+    public boolean boundaryDetect(Projectile p) {
+        if(p.getX() < playAreaLeft + projctileSize
+            || p.getX() > playAreaRight - projctileSize
+            || p.getY() < playAreaTop
+            || p.getY() > playAreaBottom) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     // game logic updates here
-    public void updateStates() {
+    public synchronized void updateStates() {
+        attackCooldown--;
+        if(attackCooldown < 0)
+            attackCooldown =0;
+
         Tank player = tankList.get(0);
         if(player.isMoving && boundaryDetect(player) == 0)
             player.move();
+
+        Tank enemy = tankList.get(1);
+        if(enemy.getHitPoint() == 0) {
+            enemyRespawnTime--;
+            if(enemyRespawnTime == 0) {
+                enemy.setHitPoint(2);
+                enemy.setX(enemyRespawnX);
+                enemy.setY(enemyRespawnY);
+                enemyRespawnTime = 120;
+            }
+        }
+
+        projIter = projectileList.iterator();
+        while(projIter.hasNext()) {
+            Projectile p = projIter.next();
+            if(hitDetectBase(p, enemy)) {
+                enemy.hit();
+                if(enemy.state == enemy.DESTORYED) {
+                    enemy.setX(0);
+                    enemy.setY(0);
+                }
+                projIter.remove();
+            }else if(boundaryDetect(p)) {
+                projIter.remove();
+            } else {
+                p.move();
+            }
+        }
+
     }
 
     // methods for controls
@@ -173,8 +294,79 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
         player.setMovingState(isMoving);
     }
 
-    public void fire() {
-        Log.d("fire", "fire!");
+    public synchronized void fire() {
+        if(attackCooldown > 0) {
+            Log.d("fire", "reloading!");
+        } else {
+            Tank player = tankList.get(0);
+            int direction = player.getDirection();
+            int offsetX = 0;
+            int offsetY = 0;
+            switch (direction) {
+                case 0:
+                    offsetY = -playAreaBlockInPixel;
+                    break;
+                case 1:
+                    offsetX = playAreaBlockInPixel;
+                    break;
+                case 2:
+                    offsetY = playAreaBlockInPixel;
+                    break;
+                case 3:
+                    offsetX = -playAreaBlockInPixel;
+                    break;
+                default:
+                    break;
+            }
+            Projectile p = new Projectile(
+                    0, player.getX() + offsetX, player.getY() + offsetY, player.getDirection(), playAreaBlockInPixel);
+            projectileList.add(p);
+            attackCooldown =player.getAttackInterval();
+
+        }
+
+
+    }
+
+    public synchronized void fire(Tank t) {
+        Log.d("fire", "enemy fire!");
+        int direction = t.getDirection();
+        int offsetX = 0;
+        int offsetY = 0;
+        switch (direction) {
+            case 0:
+                offsetY = -playAreaBlockInPixel;
+                break;
+            case 1:
+                offsetX = playAreaBlockInPixel;
+                break;
+            case 2:
+                offsetY = playAreaBlockInPixel;
+                break;
+            case 3:
+                offsetX = -playAreaBlockInPixel;
+                break;
+            default:
+                break;
+        }
+        Projectile p = new Projectile(
+                0, t.getX() + offsetX, t.getY() + offsetY, t.getDirection(), playAreaBlockInPixel);
+        projectileList.add(p);
+    }
+
+    // initialize game
+    public void init() {
+        player = new Tank(0, screenWidth/2, screenHeight/2, 0, PLAYER1, playAreaBlockInPixel);
+        attackCooldown = player.getAttackInterval();
+        tankList.add(player);
+
+        enemyRespawnX = screenWidth / 2;
+        enemyRespawnY = screenHeight / 5;
+        // for test
+        Tank enemy = new Tank(0, enemyRespawnX, enemyRespawnY, 2, ENEMY, playAreaBlockInPixel);
+        tankList.add(enemy);
+        enemyRespawnTime = 120;
+
     }
 
     public void pause(){
@@ -198,12 +390,10 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
     public void restart() {
         playing = true;
         finished = false;
-        player = new Tank(1, screenWidth/2, screenHeight/2, 0, playAreaBlockInPixel);
-        tankList.add(player);
+        init();
         loopThread = new LoopThread(this);
         loopThread.setRunning(true);
         loopThread.start();
-
     }
 
     // get screen width & height here
@@ -224,6 +414,8 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
         rightUIRect = new Rect(screenWidth - pixelPerBlock*sideSpace, 0, screenWidth, screenHeight);
         playAreaBlockInPixel = (playAreaRight - playAreaLeft) / playAreaBlockWidth;
         Log.d("playAreaBlockInPixel", "" + playAreaBlockInPixel);
+        projctileSize = playAreaBlockInPixel / 4;
+        tankSize = playAreaBlockInPixel;
         restart();
     }
 

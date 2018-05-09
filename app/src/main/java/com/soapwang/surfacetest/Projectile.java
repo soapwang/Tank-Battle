@@ -4,21 +4,15 @@ package com.soapwang.surfacetest;
  * Created by soapwang on 2018/5/4.
  */
 
-public class Projectile {
-    int x;
-    int y;
-    int direction;
-    int speed;
-    int pixelsPerBlock;
+public class Projectile extends Unit {
 
-    public Projectile(int x, int y, int direction, int pixelsPerBlock) {
+    public Projectile(int owner, int x, int y, int direction, int pixelsPerBlock) {
         this.x = x;
         this.y = y;
         this.direction = direction;
-        speed = pixelsPerBlock / 5;
+        this.owner = owner;
+        speed = (int)(pixelsPerBlock / 10 * 2.5);
+        isMoving = true;
     }
 
-    public void move() {
-
-    }
 }

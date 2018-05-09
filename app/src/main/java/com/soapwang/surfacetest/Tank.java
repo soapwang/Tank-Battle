@@ -6,91 +6,56 @@ import android.util.Log;
  * Created by soapwang on 2018/5/2.
  */
 
-public class Tank {
+public class Tank extends Unit {
+    public static final int DESTORYED = 0;
+    public static final int ACTIVE = 1;
+
     int type;
-    int speed; // pixels moved per tick. one sec. = 60 tick
     int hitPoint;
-    int direction; //0=up, 1=right, 2=down, 3=left
-    // x,y are the center coordinates of model
-    int x;
-    int y;
-
-    boolean isMoving;
-
+    int attackInterval;
+    int state;
     /*
      * pixelPerBlock: to calculate how many pixels it should move
      */
-    public Tank(int type, int x, int y, int direction, int pixelPerBlock) {
+    public Tank(int type, int x, int y, int direction, int owner, int pixelPerBlock) {
         this.type = type;
+        int[] stats = Constants.TYPES[type]; // stats:[HP, speed scalar, attack interval]
         this.x = x;
         this.y = y;
         this.direction = direction;
-        hitPoint = 1;
+        this.owner = owner;
+        hitPoint = stats[0];
         // pixelPerBlock / 10 is a proper base speed. Change speed by multiplying a scalar.
-        speed = (int)((pixelPerBlock / 10) * 1.25);
+        speed = (int)((pixelPerBlock / 10) * (1+0.25*stats[1]));
         Log.d("speed of tank type" + this.type, "" + speed);
         isMoving = false;
+        attackInterval = stats[2];
+        state = ACTIVE;
     }
 
-    // only move towards current direction
-    public void move() {
-        switch (direction) {
-            case 0:
-                y -= speed;
-                break;
-            case 1:
-                x += speed;
-                break;
-            case 2:
-                y += speed;
-                break;
-            case 3:
-                x -= speed;
-                break;
-        }
-
+    public void hit() {
+        if(hitPoint > 0)
+            hitPoint--;
+        else
+            state = DESTORYED;
     }
 
-    public void setX(int x) {
-        this.x = x;
-    }
-
-    public int getX() {
-        return  x;
-    }
-
-    public void setY(int y) {
-        this.y = y;
-    }
-
-    public void setOffset(int x, int y) {
-        this.x += x;
-        this.y += y;
-    }
-
-
-    public int getY() {
-        return y;
+    public void setHitPoint(int hitPoint) {
+        this.hitPoint = hitPoint;
+        state = ACTIVE;
     }
 
     public int getHitPoint() {
         return hitPoint;
     }
 
-    public void setDirection(int direction) {
-        this.direction = direction;
+    public int getAttackInterval() {
+        return attackInterval;
     }
 
-    public int getDirection() {
-        return direction;
+    public int getState() {
+        return state;
     }
 
-    public void setMovingState(boolean isMoving) {
-        this.isMoving = isMoving;
-    }
-
-    public boolean getMovingState() {
-        return isMoving;
-    }
 
 }
