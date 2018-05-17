@@ -65,6 +65,7 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
     // other measurements
     private int projctileSize;
     private int tankSize;
+    private int difficulty;
 
     // components and units
     private Rect leftUIRect;
@@ -79,6 +80,8 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
 
     private int playerRespawnX;
     private int playerRespawnY;
+
+    EnemyAI enemyAI;
 
     //for test
     private int enemyRespawnTime;
@@ -112,6 +115,28 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
 
         proj1 = BitmapFactory.decodeResource(getResources(), R.drawable.projctile);
     }
+
+    //getters and setters
+    public int getPlayAreaLeft() {
+        return playAreaLeft;
+    }
+
+    public int getPlayAreaRight() {
+        return playAreaRight;
+    }
+
+    public int getPlayAreaTop() {
+        return playAreaTop;
+    }
+
+    public int getPlayAreaBottom() {
+        return playAreaBottom;
+    }
+
+    public int getPlayAreaBlockInPixel() {
+        return playAreaBlockInPixel;
+    }
+
 
     @Override
     public void draw(Canvas canvas) {
@@ -265,6 +290,9 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
                 enemy.setY(enemyRespawnY);
                 enemyRespawnTime = 120;
             }
+        } else {
+            enemyAI.align();
+            enemyAI.attack();
         }
 
         projIter = projectileList.iterator();
@@ -364,9 +392,10 @@ public class GameViewNew extends SurfaceView implements SurfaceHolder.Callback{
         enemyRespawnY = screenHeight / 5;
         // for test
         Tank enemy = new Tank(0, enemyRespawnX, enemyRespawnY, 2, ENEMY, playAreaBlockInPixel);
+        enemyAI = new EnemyAI(enemy, player, this, difficulty);
         tankList.add(enemy);
         enemyRespawnTime = 120;
-
+        difficulty = 1;
     }
 
     public void pause(){
